@@ -3,7 +3,7 @@ import requests
 import pandas as pd
 import plotly.express as px
 import json
-from datetime import datetime
+from datetime import datetime, timedelta
 import os
 
 # Configuración de página
@@ -15,13 +15,15 @@ DATA_FILE = "clash_royale_data.json"
 # Inicializar session state
 if 'api_key' not in st.session_state:
     st.session_state.api_key = ""
+if 'last_update' not in st.session_state:
+    st.session_state.last_update = None
 
 def load_data():
     """Cargar datos guardados del archivo JSON"""
     if os.path.exists(DATA_FILE):
         with open(DATA_FILE, 'r') as f:
             return json.load(f)
-    return {"players": {}, "history": []}
+    return {"players": {}, "history": [], "last_auto_update": None}
 
 def save_data(data):
     """Guardar datos en archivo JSON"""
@@ -30,12 +32,10 @@ def save_data(data):
 
 def verify_api_key(api_key):
     """Verificar que la API key sea válida"""
-    # Simple check - if API key exists and is long enough
     return api_key and len(api_key) > 50
 
 def fetch_player_data(player_tag, api_key):
     """Obtener datos del jugador de la API de Clash Royale"""
-    # Limpiar el tag
     clean_tag = player_tag.replace('#', '').strip()
     
     url = f"https://api.clashroyale.com/v1/players/%23{clean_tag}"
@@ -50,12 +50,60 @@ def fetch_player_data(player_tag, api_key):
     else:
         raise Exception(f"Error {response.status_code}: {response.text}")
 
-# Título
-st.title("🏆 Estatisticas Clash Royale")
-st.markdown("")
+def auto_update_players(data, api_key):
+    """Actualizar automáticamente todos los jugadores"""
+    if not data['players']:
+        return data
+    
+    success_count = 0
+    fail_count = 0
+    
+    for tag, player_info in data['players'].items():
+        try:
+            player_data = fetch_player_data(tag, api_key)
+            
+            data['history'].append({
+                'timestamp': datetime.now().isoformat(),
+                'tag': player_data['tag'],
+                'name': player_data['name'],
+                'trophies': player_data['trophies'],
+                'level': player_data['expLevel'],
+                'wins': player_data['wins'],
+                'losses': player_data['losses']
+            })
+            success_count += 1
+        except Exception:
+            fail_count += 1
+    
+    data['last_auto_update'] = datetime.now().isoformat()
+    save_data(data)
+    return data, success_count, fail_count
 
 # Cargar datos existentes
 data = load_data()
+
+# AUTO-UPDATE LOGIC: Verificar si han pasado 30 minutos desde la última actualización
+if data['players'] and st.session_state.api_key and verify_api_key(st.session_state.api_key):
+    last_update = data.get('last_auto_update')
+    should_update = False
+    
+    if last_update is None:
+        should_update = True
+    else:
+        last_update_time = datetime.fromisoformat(last_update)
+        time_diff = datetime.now() - last_update_time
+        if time_diff >= timedelta(minutes=30):
+            should_update = True
+    
+    if should_update:
+        with st.spinner("🔄 Actualizando datos automáticamente..."):
+            data, success, fail = auto_update_players(data, st.session_state.api_key)
+            if success > 0:
+                st.toast(f"✅ Auto-actualización completada: {success} jugadores actualizados", icon="✅")
+
+# Título
+st.title("🏆 Estatisticas Clash Royale")
+st.markdown("")
 
 # Barra lateral para la API key
 with st.sidebar:
@@ -63,15 +111,25 @@ with st.sidebar:
     api_key = st.text_input("Input", type="password", value=st.session_state.api_key)
     st.session_state.api_key = api_key
     
-    # Verificar si tiene API key válida
     has_valid_api = verify_api_key(api_key)
     
     if has_valid_api:
         st.success("✅ API Key válida - Puedes modificar datos")
+        
+        # Mostrar información de última actualización
+        if data.get('last_auto_update'):
+            last_update_time = datetime.fromisoformat(data['last_auto_update'])
+            time_since = datetime.now() - last_update_time
+            minutes_since = int(time_since.total_seconds() / 60)
+            
+            st.info(f"⏱️ Última actualización: hace {minutes_since} minutos")
+            
+            if minutes_since < 30:
+                remaining = 30 - minutes_since
+                st.caption(f"Próxima actualización en ~{remaining} minutos")
     else:
         st.info("Si quieres que se anada/quitar/cambiar algo pregunta al que hizo la pagina (yo)")
     
-    # Solo mostrar botón de borrar si tiene API key válida
     if has_valid_api:
         st.markdown("---")
         if st.button("🗑️ Borrar Todos los Datos"):
@@ -80,18 +138,17 @@ with st.sidebar:
             st.success("¡Datos borrados!")
             st.rerun()
 
-# Verificar si tiene API key válida
 has_valid_api = verify_api_key(st.session_state.api_key)
 
-# Sección añadir jugador - Solo si tiene API key
+# Sección añadir jugador
 if has_valid_api:
     st.header("➕ Añadir Jugador")
     col1, col2 = st.columns([3, 1])
     with col1:
         player_tag = st.text_input("Tag del Jugador (ej., #ABC123 o ABC123)", key="player_tag_input")
     with col2:
-        st.write("")  # Espaciado
-        st.write("")  # Espaciado
+        st.write("")
+        st.write("")
         add_button = st.button("Añadir Jugador", type="primary")
 
     if add_button:
@@ -104,14 +161,12 @@ if has_valid_api:
                     
                     player_tag_clean = player_data['tag']
                     
-                    # Añadir al diccionario de jugadores si no existe
                     if player_tag_clean not in data['players']:
                         data['players'][player_tag_clean] = {
                             'name': player_data['name'],
                             'tag': player_tag_clean
                         }
                     
-                    # Añadir estadísticas actuales al historial
                     data['history'].append({
                         'timestamp': datetime.now().isoformat(),
                         'tag': player_tag_clean,
@@ -128,43 +183,46 @@ if has_valid_api:
             except Exception as e:
                 st.error(f"Error: {str(e)}")
 
-# Sección actualizar todos los jugadores - Solo si tiene API key Y hay jugadores
+# Sección actualizar todos los jugadores manualmente
 if data['players'] and has_valid_api:
     st.header("🔄 Actualizar Estadísticas")
-    if st.button("Actualizar Todos los Jugadores"):
-        progress_bar = st.progress(0)
-        status_text = st.empty()
-        
-        total_players = len(data['players'])
-        for idx, (tag, player_info) in enumerate(data['players'].items()):
-            try:
-                status_text.text(f"Actualizando {player_info['name']}...")
-                player_data = fetch_player_data(tag, api_key)
-                
-                # Añadir al historial
-                data['history'].append({
-                    'timestamp': datetime.now().isoformat(),
-                    'tag': player_data['tag'],
-                    'name': player_data['name'],
-                    'trophies': player_data['trophies'],
-                    'level': player_data['expLevel'],
-                    'wins': player_data['wins'],
-                    'losses': player_data['losses']
-                })
-                
-                progress_bar.progress((idx + 1) / total_players)
-            except Exception as e:
-                st.warning(f"Fallo al actualizar {player_info['name']}: {str(e)}")
-        
-        save_data(data)
-        status_text.text("✅ ¡Todos los jugadores actualizados!")
-        st.rerun()
+    col1, col2 = st.columns([3, 1])
+    with col1:
+        st.info("💡 Los datos se actualizan automáticamente cada 30 minutos cuando alguien visita la página")
+    with col2:
+        if st.button("Actualizar Ahora", type="secondary"):
+            progress_bar = st.progress(0)
+            status_text = st.empty()
+            
+            total_players = len(data['players'])
+            for idx, (tag, player_info) in enumerate(data['players'].items()):
+                try:
+                    status_text.text(f"Actualizando {player_info['name']}...")
+                    player_data = fetch_player_data(tag, api_key)
+                    
+                    data['history'].append({
+                        'timestamp': datetime.now().isoformat(),
+                        'tag': player_data['tag'],
+                        'name': player_data['name'],
+                        'trophies': player_data['trophies'],
+                        'level': player_data['expLevel'],
+                        'wins': player_data['wins'],
+                        'losses': player_data['losses']
+                    })
+                    
+                    progress_bar.progress((idx + 1) / total_players)
+                except Exception as e:
+                    st.warning(f"Fallo al actualizar {player_info['name']}: {str(e)}")
+            
+            data['last_auto_update'] = datetime.now().isoformat()
+            save_data(data)
+            status_text.text("✅ ¡Todos los jugadores actualizados!")
+            st.rerun()
 
-# Mostrar jugadores actuales - TODOS PUEDEN VER
+# Mostrar jugadores actuales
 if data['players']:
     st.header("👥 Jugadores Rastreados")
     
-    # Obtener estadísticas más recientes de cada jugador
     latest_stats = {}
     for entry in reversed(data['history']):
         if entry['tag'] not in latest_stats:
@@ -183,25 +241,21 @@ if data['players']:
             if stats:
                 st.caption(f"Nivel {stats.get('level', 'N/A')} • {stats.get('wins', 0)}V/{stats.get('losses', 0)}D")
             
-            # Solo mostrar botón eliminar si tiene API key válida
             if has_valid_api:
                 if st.button(f"Eliminar", key=f"remove_{tag}"):
                     del data['players'][tag]
-                    # Eliminar del historial también
                     data['history'] = [h for h in data['history'] if h['tag'] != tag]
                     save_data(data)
                     st.rerun()
 
-# Mostrar gráfica - TODOS PUEDEN VER
+# Mostrar gráfica
 if data['history']:
     st.header("📈 Progreso de Trofeos")
     
-    # Convertir historial a DataFrame
     df = pd.DataFrame(data['history'])
     df['timestamp'] = pd.to_datetime(df['timestamp'])
     df = df.sort_values('timestamp')
     
-    # Crear gráfica de líneas
     fig = px.line(
         df, 
         x='timestamp', 
@@ -221,7 +275,6 @@ if data['history']:
     
     st.plotly_chart(fig, use_container_width=True)
     
-    # Mostrar tabla de datos - TODOS PUEDEN VER
     with st.expander("📊 RAW DATA"):
         display_df = df[['timestamp', 'name', 'trophies', 'level', 'wins', 'losses']].copy()
         display_df['timestamp'] = display_df['timestamp'].dt.strftime('%Y-%m-%d %H:%M')
