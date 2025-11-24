@@ -75,14 +75,6 @@ with st.sidebar:
     else:
         st.info("Si quieres que se anada/quitar/cambiar algo pregunta al que hizo la pagina (yo)")
     
-    st.markdown("---")
-    st.markdown("### 📖 Cómo usar:")
-    st.markdown("""
-    1. **Sin API key:** Solo puedes ver las estadísticas
-    2. **Con API key:** Puedes añadir/actualizar/eliminar jugadores
-    3. Obtén tu clave API de [RoyaleAPI](https://developer.clashroyale.com)
-    """)
-    
     # Solo mostrar botón de borrar si tiene API key válida
     if has_valid_api:
         st.markdown("---")
@@ -251,4 +243,5 @@ else:
 # Pie de página
 st.markdown("---")
 st.caption("Hecho por CB")
+
 
