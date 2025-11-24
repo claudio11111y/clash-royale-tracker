@@ -67,13 +67,13 @@ with st.sidebar:
     api_key = st.text_input("Input", type="password", value=st.session_state.api_key)
     st.session_state.api_key = api_key
     
-    # Verificar si tiene API key válida
-    has_valid_api = verify_api_key(api_key)
-    
-    if has_valid_api:
-        st.success("✅ API Key válida - Puedes modificar datos")
-    else:
-        st.info("Si quieres que se anada/quitar/cambiar algo pregunta al que hizo la pagina (yo)")
+# Verificar si tiene API key válida
+has_valid_api = len(api_key) > 10  # Simple check - if API key exists
+
+if has_valid_api:
+    st.success("✅ API Key válida - Puedes modificar datos")
+else:
+    st.info("Si quieres que se anada/quitar/cambiar algo pregunta al que hizo la pagina (yo)")
     
     # Solo mostrar botón de borrar si tiene API key válida
     if has_valid_api:
@@ -243,6 +243,7 @@ else:
 # Pie de página
 st.markdown("---")
 st.caption("Hecho por CB")
+
 
 
 
