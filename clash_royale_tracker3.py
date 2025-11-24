@@ -61,19 +61,22 @@ def fetch_player_data(player_tag, api_key):
 st.title("🏆 Estatisticas Clash Royale")
 st.markdown("")
 
+# Cargar datos existentes
+data = load_data()
+
 # Barra lateral para la API key
 with st.sidebar:
     st.header("⚙️ Configuración")
     api_key = st.text_input("Input", type="password", value=st.session_state.api_key)
     st.session_state.api_key = api_key
     
-# Verificar si tiene API key válida
-has_valid_api = len(api_key) > 10  # Simple check - if API key exists
-
-if has_valid_api:
-    st.success("✅ API Key válida - Puedes modificar datos")
-else:
-    st.info("Si quieres que se anada/quitar/cambiar algo pregunta al que hizo la pagina (yo)")
+    # Verificar si tiene API key válida
+    has_valid_api = verify_api_key(api_key)
+    
+    if has_valid_api:
+        st.success("✅ API Key válida - Puedes modificar datos")
+    else:
+        st.info("Si quieres que se anada/quitar/cambiar algo pregunta al que hizo la pagina (yo)")
     
     # Solo mostrar botón de borrar si tiene API key válida
     if has_valid_api:
@@ -83,9 +86,6 @@ else:
                 os.remove(DATA_FILE)
             st.success("¡Datos borrados!")
             st.rerun()
-
-# Cargar datos existentes
-data = load_data()
 
 # Verificar si tiene API key válida
 has_valid_api = verify_api_key(st.session_state.api_key)
@@ -135,7 +135,7 @@ if has_valid_api:
             except Exception as e:
                 st.error(f"Error: {str(e)}")
 
-# Sección actualizar todos los jugadores - Solo si tiene API key
+# Sección actualizar todos los jugadores - Solo si tiene API key Y hay jugadores
 if data['players'] and has_valid_api:
     st.header("🔄 Actualizar Estadísticas")
     if st.button("Actualizar Todos los Jugadores"):
@@ -223,7 +223,7 @@ if data['history']:
         hovermode='x unified',
         plot_bgcolor='rgba(0,0,0,0)',
         paper_bgcolor='rgba(0,0,0,0)',
-        height=900  # Graph is now much taller for better visibility
+        height=900
     )
     
     st.plotly_chart(fig, use_container_width=True)
@@ -234,17 +234,9 @@ if data['history']:
         display_df['timestamp'] = display_df['timestamp'].dt.strftime('%Y-%m-%d %H:%M')
         display_df.columns = ['Fecha y Hora', 'Jugador', 'Trofeos', 'Nivel', 'Victorias', 'Derrotas']
         st.dataframe(display_df, use_container_width=True)
-else:
-    if has_valid_api:
-        st.info("👆 ¡Añade jugadores y actualiza sus estadísticas para ver la gráfica!")
-    else:
-        st.info("📊 No hay datos disponibles todavía. Alguien con API key necesita añadir jugadores.")
+elif not has_valid_api:
+    st.info("📊 No hay datos disponibles todavía. Alguien con API key necesita añadir jugadores.")
 
 # Pie de página
 st.markdown("---")
 st.caption("Hecho por CB")
-
-
-
-
-
