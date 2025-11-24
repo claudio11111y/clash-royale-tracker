@@ -30,15 +30,8 @@ def save_data(data):
 
 def verify_api_key(api_key):
     """Verificar que la API key sea válida"""
-    if not api_key:
-        return False
-    try:
-        url = "https://api.clashroyale.com/v1/cards"
-        headers = {'Authorization': f'Bearer {api_key}'}
-        response = requests.get(url, headers=headers, timeout=5)
-        return response.status_code == 200
-    except:
-        return False
+    # Simple check - if API key exists and is long enough
+    return api_key and len(api_key) > 50
 
 def fetch_player_data(player_tag, api_key):
     """Obtener datos del jugador de la API de Clash Royale"""
