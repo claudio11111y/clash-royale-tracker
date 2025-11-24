@@ -64,7 +64,7 @@ st.markdown("")
 # Barra lateral para la API key
 with st.sidebar:
     st.header("⚙️ Configuración")
-    api_key = type="password", value=st.session_state.api_key)
+    api_key = type="password", value=st.session_state.api_key
     st.session_state.api_key = api_key
     
     # Verificar si tiene API key válida
@@ -243,6 +243,7 @@ else:
 # Pie de página
 st.markdown("---")
 st.caption("Hecho por CB")
+
 
 
 
