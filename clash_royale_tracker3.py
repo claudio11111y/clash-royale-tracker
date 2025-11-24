@@ -58,8 +58,8 @@ def fetch_player_data(player_tag, api_key):
         raise Exception(f"Error {response.status_code}: {response.text}")
 
 # Título
-st.title("🏆 Rastreador de Estadísticas Clash Royale")
-st.markdown("¡Rastrea el progreso de trofeos de tus amigos a lo largo del tiempo!")
+st.title("🏆 Estatisticas Clash Royale")
+st.markdown("q")
 
 # Barra lateral para la API key
 with st.sidebar:
@@ -73,7 +73,7 @@ with st.sidebar:
     if has_valid_api:
         st.success("✅ API Key válida - Puedes modificar datos")
     else:
-        st.info("👁️ Modo solo lectura - Ingresa API key para modificar")
+        st.info("Si quieres que se anada/quitar/cambiar algo pregunta al que hizo la pagina (yo)")
     
     st.markdown("---")
     st.markdown("### 📖 Cómo usar:")
@@ -237,7 +237,7 @@ if data['history']:
     st.plotly_chart(fig, use_container_width=True)
     
     # Mostrar tabla de datos - TODOS PUEDEN VER
-    with st.expander("📊 Ver Datos en Crudo"):
+    with st.expander("📊 RAW DATA"):
         display_df = df[['timestamp', 'name', 'trophies', 'level', 'wins', 'losses']].copy()
         display_df['timestamp'] = display_df['timestamp'].dt.strftime('%Y-%m-%d %H:%M')
         display_df.columns = ['Fecha y Hora', 'Jugador', 'Trofeos', 'Nivel', 'Victorias', 'Derrotas']
@@ -251,3 +251,4 @@ else:
 # Pie de página
 st.markdown("---")
 st.caption("Hecho por CB")
+
