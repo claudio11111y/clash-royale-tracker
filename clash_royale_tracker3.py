@@ -23,12 +23,20 @@ def load_data():
     if os.path.exists(DATA_FILE):
         with open(DATA_FILE, 'r') as f:
             return json.load(f)
-    return {"players": {}, "history": [], "last_auto_update": None}
+    return {"players": {}, "history": [], "last_auto_update": None, "api_key": ""}
 
 def save_data(data):
     """Guardar datos en archivo JSON"""
     with open(DATA_FILE, 'w') as f:
         json.dump(data, f, indent=2)
+
+def get_api_key(data):
+    """Obtener la API key, ya sea de session_state o de los datos guardados"""
+    if st.session_state.api_key and verify_api_key(st.session_state.api_key):
+        return st.session_state.api_key
+    elif 'api_key' in data and verify_api_key(data.get('api_key', '')):
+        return data['api_key']
+    return None
 
 def verify_api_key(api_key):
     """Verificar que la API key sea válida"""
@@ -83,23 +91,34 @@ def auto_update_players(data, api_key):
 data = load_data()
 
 # AUTO-UPDATE LOGIC: Verificar si han pasado 30 minutos desde la última actualización
-if data['players'] and st.session_state.api_key and verify_api_key(st.session_state.api_key):
+# Cargar datos frescos para verificar el timestamp
+data = load_data()
+
+# Obtener API key (ya sea del usuario actual o la guardada)
+working_api_key = get_api_key(data)
+
+if data['players'] and working_api_key:
     last_update = data.get('last_auto_update')
     should_update = False
     
     if last_update is None:
         should_update = True
     else:
-        last_update_time = datetime.fromisoformat(last_update)
-        time_diff = datetime.now() - last_update_time
-        if time_diff >= timedelta(minutes=30):
+        try:
+            last_update_time = datetime.fromisoformat(last_update)
+            time_diff = datetime.now() - last_update_time
+            if time_diff >= timedelta(minutes=30):
+                should_update = True
+        except:
             should_update = True
     
     if should_update:
         with st.spinner("🔄 Actualizando datos automáticamente..."):
-            data, success, fail = auto_update_players(data, st.session_state.api_key)
+            data, success, fail = auto_update_players(data, working_api_key)
             if success > 0:
                 st.toast(f"✅ Auto-actualización completada: {success} jugadores actualizados", icon="✅")
+            # Recargar datos después de actualizar
+            data = load_data()
 
 # Título
 st.title("🏆 Estatisticas Clash Royale")
@@ -116,6 +135,11 @@ with st.sidebar:
     if has_valid_api:
         st.success("✅ API Key válida - Puedes modificar datos")
         
+        # Guardar API key en el archivo de datos para que todos puedan usar
+        if data.get('api_key') != api_key:
+            data['api_key'] = api_key
+            save_data(data)
+        
         # Mostrar información de última actualización
         if data.get('last_auto_update'):
             last_update_time = datetime.fromisoformat(data['last_auto_update'])
@@ -128,7 +152,12 @@ with st.sidebar:
                 remaining = 30 - minutes_since
                 st.caption(f"Próxima actualización en ~{remaining} minutos")
     else:
-        st.info("Si quieres que se anada/quitar/cambiar algo pregunta al que hizo la pagina (yo)")
+        # Verificar si hay API key guardada en los datos
+        stored_api_key = get_api_key(data)
+        if stored_api_key:
+            st.success("✅ API Key configurada - Todos pueden actualizar")
+        else:
+            st.info("Si quieres que se anada/quitar/cambiar algo pregunta al que hizo la pagina (yo)")
     
     if has_valid_api:
         st.markdown("---")
@@ -183,41 +212,58 @@ if has_valid_api:
             except Exception as e:
                 st.error(f"Error: {str(e)}")
 
-# Sección actualizar todos los jugadores manualmente
-if data['players'] and has_valid_api:
+# Sección actualizar todos los jugadores manualmente - DISPONIBLE PARA TODOS
+if data['players']:
     st.header("🔄 Actualizar Estadísticas")
-    col1, col2 = st.columns([3, 1])
-    with col1:
-        st.info("💡 Los datos se actualizan automáticamente cada 30 minutos cuando alguien visita la página")
-    with col2:
-        if st.button("Actualizar Ahora", type="secondary"):
-            progress_bar = st.progress(0)
-            status_text = st.empty()
-            
-            total_players = len(data['players'])
-            for idx, (tag, player_info) in enumerate(data['players'].items()):
-                try:
-                    status_text.text(f"Actualizando {player_info['name']}...")
-                    player_data = fetch_player_data(tag, api_key)
-                    
-                    data['history'].append({
-                        'timestamp': datetime.now().isoformat(),
-                        'tag': player_data['tag'],
-                        'name': player_data['name'],
-                        'trophies': player_data['trophies'],
-                        'level': player_data['expLevel'],
-                        'wins': player_data['wins'],
-                        'losses': player_data['losses']
-                    })
-                    
-                    progress_bar.progress((idx + 1) / total_players)
-                except Exception as e:
-                    st.warning(f"Fallo al actualizar {player_info['name']}: {str(e)}")
-            
-            data['last_auto_update'] = datetime.now().isoformat()
-            save_data(data)
-            status_text.text("✅ ¡Todos los jugadores actualizados!")
-            st.rerun()
+    
+    # Obtener API key (ya sea del usuario actual o la guardada)
+    working_api_key = get_api_key(data)
+    
+    # Mostrar información diferente según si tiene API key o no
+    if has_valid_api:
+        col1, col2 = st.columns([3, 1])
+        with col1:
+            st.info("💡 Los datos se actualizan automáticamente cada 30 minutos cuando alguien visita la página")
+        with col2:
+            update_button = st.button("Actualizar Ahora", type="secondary")
+    else:
+        col1, col2 = st.columns([3, 1])
+        with col1:
+            if working_api_key:
+                st.info("💡 Puedes actualizar manualmente los datos en cualquier momento")
+            else:
+                st.warning("⚠️ No hay API key configurada. Pide al administrador que configure una.")
+        with col2:
+            update_button = st.button("Actualizar Ahora", type="primary", disabled=(not working_api_key))
+    
+    if update_button and working_api_key:
+        progress_bar = st.progress(0)
+        status_text = st.empty()
+        
+        total_players = len(data['players'])
+        for idx, (tag, player_info) in enumerate(data['players'].items()):
+            try:
+                status_text.text(f"Actualizando {player_info['name']}...")
+                player_data = fetch_player_data(tag, working_api_key)
+                
+                data['history'].append({
+                    'timestamp': datetime.now().isoformat(),
+                    'tag': player_data['tag'],
+                    'name': player_data['name'],
+                    'trophies': player_data['trophies'],
+                    'level': player_data['expLevel'],
+                    'wins': player_data['wins'],
+                    'losses': player_data['losses']
+                })
+                
+                progress_bar.progress((idx + 1) / total_players)
+            except Exception as e:
+                st.warning(f"Fallo al actualizar {player_info['name']}: {str(e)}")
+        
+        data['last_auto_update'] = datetime.now().isoformat()
+        save_data(data)
+        status_text.text("✅ ¡Todos los jugadores actualizados!")
+        st.rerun()
 
 # Mostrar jugadores actuales
 if data['players']:
