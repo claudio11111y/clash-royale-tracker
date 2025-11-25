@@ -7,7 +7,7 @@ from datetime import datetime, timedelta
 import os
 
 # Configuración de página
-st.set_page_config(page_title="Rastreador Clash Royale", page_icon="🏆", layout="wide")
+st.set_page_config(page_title="Ranking Clash Royale", page_icon="🏆", layout="wide")
 
 # Archivo para almacenar datos
 DATA_FILE = "clash_royale_data.json"
@@ -121,7 +121,7 @@ if data['players'] and working_api_key:
             data = load_data()
 
 # Título
-st.title("🏆 Estatisticas Clash Royale")
+st.title("Estatisticas")
 st.markdown("")
 
 # Barra lateral para la API key
@@ -146,7 +146,7 @@ with st.sidebar:
             time_since = datetime.now() - last_update_time
             minutes_since = int(time_since.total_seconds() / 60)
             
-            st.info(f"⏱️ Última actualización: hace {minutes_since} minutos")
+            st.info(f"Última actualización: hace {minutes_since} minutos")
             
             if minutes_since < 30:
                 remaining = 30 - minutes_since
@@ -155,7 +155,7 @@ with st.sidebar:
         # Verificar si hay API key guardada en los datos
         stored_api_key = get_api_key(data)
         if stored_api_key:
-            st.success("✅ API Key configurada - Todos pueden actualizar")
+            st.success("")
         else:
             st.info("Si quieres que se anada/quitar/cambiar algo pregunta al que hizo la pagina (yo)")
     
@@ -230,7 +230,7 @@ if data['players']:
         col1, col2 = st.columns([3, 1])
         with col1:
             if working_api_key:
-                st.info("💡 Puedes actualizar manualmente los datos en cualquier momento")
+                st.info("actualizar manualmente los datos")
             else:
                 st.warning("⚠️ No hay API key configurada. Pide al administrador que configure una.")
         with col2:
@@ -332,3 +332,4 @@ elif not has_valid_api:
 # Pie de página
 st.markdown("---")
 st.caption("Hecho por CB")
+
