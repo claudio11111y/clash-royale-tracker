@@ -4,13 +4,13 @@ import pandas as pd
 import plotly.express as px
 import json
 from datetime import datetime, timedelta
-import os
 
 # Configuración de página
 st.set_page_config(page_title="Ranking Clash Royale", page_icon="🏆", layout="wide")
 
-# Archivo para almacenar datos
-DATA_FILE = "clash_royale_data.json"
+# GitHub Gist configuration
+GITHUB_TOKEN = st.secrets["GITHUB_TOKEN"]
+GIST_ID = st.secrets["GIST_ID"]
 
 # Inicializar session state
 if 'api_key' not in st.session_state:
@@ -19,16 +19,46 @@ if 'last_update' not in st.session_state:
     st.session_state.last_update = None
 
 def load_data():
-    """Cargar datos guardados del archivo JSON"""
-    if os.path.exists(DATA_FILE):
-        with open(DATA_FILE, 'r') as f:
-            return json.load(f)
-    return {"players": {}, "history": [], "last_auto_update": None, "api_key": ""}
+    """Cargar datos guardados del GitHub Gist"""
+    try:
+        url = f"https://api.github.com/gists/{GIST_ID}"
+        headers = {'Authorization': f'token {GITHUB_TOKEN}'}
+        response = requests.get(url, headers=headers)
+        
+        if response.status_code == 200:
+            gist_data = response.json()
+            filename = list(gist_data['files'].keys())[0]
+            content = gist_data['files'][filename]['content']
+            return json.loads(content)
+        else:
+            return {"players": {}, "history": [], "last_auto_update": None, "api_key": ""}
+    except Exception as e:
+        st.error(f"Error cargando datos: {str(e)}")
+        return {"players": {}, "history": [], "last_auto_update": None, "api_key": ""}
 
 def save_data(data):
-    """Guardar datos en archivo JSON"""
-    with open(DATA_FILE, 'w') as f:
-        json.dump(data, f, indent=2)
+    """Guardar datos en GitHub Gist"""
+    try:
+        url = f"https://api.github.com/gists/{GIST_ID}"
+        headers = {
+            'Authorization': f'token {GITHUB_TOKEN}',
+            'Content-Type': 'application/json'
+        }
+        
+        payload = {
+            "files": {
+                "clash_royale_data.json": {
+                    "content": json.dumps(data, indent=2)
+                }
+            }
+        }
+        
+        response = requests.patch(url, headers=headers, json=payload)
+        
+        if response.status_code != 200:
+            st.error(f"Error guardando datos: {response.status_code}")
+    except Exception as e:
+        st.error(f"Error guardando datos: {str(e)}")
 
 def get_api_key(data):
     """Obtener la API key, ya sea de session_state o de los datos guardados"""
@@ -162,8 +192,8 @@ with st.sidebar:
     if has_valid_api:
         st.markdown("---")
         if st.button("🗑️ Borrar Todos los Datos"):
-            if os.path.exists(DATA_FILE):
-                os.remove(DATA_FILE)
+            data = {"players": {}, "history": [], "last_auto_update": None, "api_key": ""}
+            save_data(data)
             st.success("¡Datos borrados!")
             st.rerun()
 
@@ -332,4 +362,3 @@ elif not has_valid_api:
 # Pie de página
 st.markdown("---")
 st.caption("Hecho por CB")
-
