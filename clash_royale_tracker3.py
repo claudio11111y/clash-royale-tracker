@@ -76,7 +76,8 @@ def fetch_player_data(player_tag, api_key):
     """Obtener datos del jugador de la API de Clash Royale"""
     clean_tag = player_tag.replace('#', '').strip()
     
-    url = f"https://api.clashroyale.com/v1/players/%23{clean_tag}"
+    # Usar proxy de RoyaleAPI en lugar de la API oficial
+    url = f"https://proxy.royaleapi.dev/v1/players/%23{clean_tag}"
     headers = {
         'Authorization': f'Bearer {api_key}'
     }
